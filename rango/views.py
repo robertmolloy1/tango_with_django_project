@@ -5,7 +5,23 @@ from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.decorators import login_required
 from rango.models import Category,Page
 from rango.forms import CategoryForm,PageForm,UserForm,UserProfileForm
+from datetime import datetime
 
+
+def visitor_cookie_handler(request, response):
+    visits = int(request.COOKIES.get('visits', '1'))
+
+    last_visit_cookie = request.COOKIES.get('last_visit', str(datetime.now()))
+    last_visit_time = datetime.strptime(last_visit_cookie[:-7], '%Y-%m-%d %H:%M:%S')
+
+    if (datetime.now() - last_visit_time).days > 0:
+        visits = visits + 1
+        response.set_cookie('last_visit', str(datetime.now()))
+    else:
+        response.set_cookie('last_visit', last_visit_cookie)
+
+    response.set_cookie('visits', visits)
+    
 
 def index(request):
     category_list = Category.objects.order_by('-likes')[:5]
@@ -15,17 +31,15 @@ def index(request):
     context_dict['boldmessage'] = 'Crunchy, creamy, cookie, candy, cupcake!'
     context_dict['categories'] = category_list
     context_dict['pages'] = page_list
+    context_dict['visits'] = int(request.COOKIES.get('visits', '1'))
 
-    request.session.set_test_cookie()
+    response = render(request, 'rango/index.html', context=context_dict)
 
-    return render(request, 'rango/index.html', context=context_dict)
+    visitor_cookie_handler(request, response)
+
+    return response
 
 def about(request):
-
-    if request.session.test_cookie_worked():
-        print("TEST COOKIE WORKED!")
-        request.session.delete_test_cookie()
-
     return render(request, 'rango/about.html')
 
 def show_category(request, category_name_slug):
